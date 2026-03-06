@@ -1,103 +1,118 @@
-InfraOps Lab
-Simulador de Infraestructura con IA
+# 🚀 InfraOps Lab
 
-Laboratorio interactivo para entrenar toma de decisiones en infraestructura TI mediante escenarios de incidentes realistas.
+### Simulador de Infraestructura con IA
 
-Diseñado para enseñanza de:
+**InfraOps Lab** es un laboratorio interactivo diseñado para entrenar la **toma de decisiones en infraestructura TI** mediante simulación de incidentes reales.
 
-infraestructura TI
+El sistema coloca al estudiante en el rol de **administrador de infraestructura** y le permite analizar síntomas, revisar telemetría y decidir acciones técnicas que afectan variables críticas del sistema.
 
-cloud computing
+Este simulador está pensado para cursos de:
 
-virtualización
+* Gestión de infraestructura
+* Cloud computing
+* DevOps
+* Seguridad informática
+* Administración de sistemas
+* Continuidad del negocio
+* Arquitectura TI
 
-seguridad
+---
 
-monitoreo
+# 🧠 ¿Cómo funciona?
 
-continuidad del negocio
+El simulador presenta **misiones de incidentes tecnológicos** donde el estudiante debe:
 
-gestión de incidentes (ITIL)
+1. Analizar el contexto del incidente
+2. Interpretar indicadores técnicos
+3. Tomar decisiones operativas
+4. Evaluar el impacto en el sistema
 
-Demo del simulador
-
-El simulador presenta misiones de infraestructura donde el estudiante debe:
-
-1️⃣ analizar síntomas
-2️⃣ interpretar telemetría
-3️⃣ tomar decisiones técnicas
-4️⃣ evaluar impacto en el sistema
+Cada decisión modifica el estado de la infraestructura en tiempo real.
 
 Variables evaluadas:
 
-disponibilidad
+* Disponibilidad
+* Rendimiento
+* Seguridad
+* Presupuesto
+* Score técnico
 
-rendimiento
+---
 
-seguridad
+# 🎮 Características del simulador
 
-presupuesto
+## Simulación de incidentes
 
-Cada decisión cambia el estado del sistema.
+Escenarios basados en situaciones reales de infraestructura:
 
-Características
-Simulador de incidentes
+* Saturación de plataformas web
+* Ataques DDoS
+* Corrupción de backups
+* Latencia en bases de datos
+* Microservicios caídos
+* Problemas de almacenamiento
+* Fallas de monitoreo
 
-Casos basados en situaciones reales:
+---
 
-plataforma universitaria saturada
+## Panel de control del sistema
 
-ataque DDoS
+Durante la simulación el estudiante puede observar:
 
-corrupción de backups
+* métricas del sistema
+* estado del servicio
+* registro del incidente
+* impacto de decisiones
+* salud global de la infraestructura
 
-latencia en base de datos
+---
 
-microservicios caídos
+## Retroalimentación con IA
 
-fallos en datacenter
+Después de cada decisión el simulador entrega:
 
-errores de monitoreo
+* análisis técnico
+* explicación del impacto
+* sugerencias de buenas prácticas
+* lectura del incidente
 
-Panel de infraestructura
+Esto ayuda a fortalecer el **criterio técnico del estudiante**.
 
-El estudiante observa:
+---
 
-telemetría del sistema
+# 👩‍🏫 Modo docente
 
-métricas de servicio
-
-registro de incidentes
-
-impacto de decisiones
-
-Motor de evaluación
-
-El sistema calcula:
-
-Disponibilidad
-Rendimiento
-Seguridad
-Presupuesto
-Score técnico
-
-y genera una evaluación final.
-
-Modo docente
-
-Permite usar el simulador como actividad evaluable.
+El simulador puede usarse como **actividad evaluable en clase**.
 
 Incluye:
 
-código de verificación del estudiante
+* registro de decisiones
+* puntaje técnico
+* análisis final
+* código de verificación por estudiante
+* bitácora del incidente
 
-rúbrica de desempeño
+Esto permite validar que el estudiante **realizó la simulación**.
 
-ranking de resultados
+---
 
-historial de decisiones
+# 🧩 Competencias que desarrolla
 
-Estructura del proyecto
+Este laboratorio fortalece habilidades como:
+
+* troubleshooting
+* análisis de incidentes
+* diagnóstico de infraestructura
+* toma de decisiones bajo presión
+* arquitectura de sistemas
+* continuidad del negocio
+* pensamiento sistémico
+
+---
+
+# 🗂 Estructura del proyecto
+
+```plaintext
 InfraOps-Lab
 │
 ├── index.html
@@ -105,82 +120,104 @@ InfraOps-Lab
 │
 └── assets
      ├── images
+     │    banner.png
+     │    datacenter.png
+     │
      ├── icons
+     │    server.svg
+     │    firewall.svg
+     │    database.svg
+     │
      └── docs
-Cómo usar el simulador
+          guia_docente.pdf
+```
 
-abrir index.html
+---
 
-ingresar nombre del estudiante
+# ▶️ Cómo ejecutar el simulador
 
-seleccionar misión
+1. Clonar el repositorio
 
-resolver el incidente
+```bash
+git clone https://github.com/tu-usuario/infraops-lab.git
+```
 
-obtener código de verificación
+2. Abrir el archivo:
 
-Uso en educación
+```plaintext
+index.html
+```
 
-El simulador puede utilizarse para cursos de:
+en cualquier navegador moderno.
 
-Gestión de Infraestructura
+No requiere instalación adicional.
 
-Cloud Computing
+---
 
-Arquitectura TI
+# 🧪 Uso en el aula
 
-Seguridad informática
+El docente puede solicitar a los estudiantes:
 
-Administración de sistemas
+1. Ejecutar el simulador
+2. Resolver una misión
+3. Analizar el resultado
+4. Entregar el **código de verificación generado**
 
-DevOps
+Esto permite evaluar:
 
-Competencias que desarrolla
+* criterio técnico
+* secuencia de decisiones
+* análisis de telemetría
 
-troubleshooting
+---
 
-análisis de incidentes
+# ⚙️ Tecnologías utilizadas
 
-toma de decisiones bajo presión
+El proyecto fue desarrollado con:
 
-arquitectura de infraestructura
+* HTML
+* JavaScript
+* TailwindCSS
+* simulación interactiva
 
-continuidad del negocio
+No requiere backend ni instalación de dependencias.
 
-pensamiento sistémico
+---
 
-Tecnologías utilizadas
+# 🔮 Futuras mejoras
 
-HTML
+Se planea incorporar:
 
-JavaScript
+* generación dinámica de incidentes con IA
+* integración con modelos LLM
+* simulación visual de arquitectura
+* tablero de ranking por estudiante
+* dashboard docente
+* escenarios multiusuario
+* laboratorio de nube y contenedores
 
-TailwindCSS
+---
 
-simulación de decisiones
+# 👩‍💻 Autor
 
-Futuras mejoras
-
-generación dinámica de incidentes con IA
-
-integración con APIs de LLM
-
-panel visual de arquitectura
-
-simulación de redes
-
-modo multijugador
-
-dashboard docente
-
-Autor
-
-Alejandra Montaña
+**Alejandra Montaña**
 Ingeniera de Sistemas
-Especialista en Inteligencia Artificial y Big Data
+Especialista en Inteligencia Artificial, Big Data y Supply Chain
 
-Docente universitaria en infraestructura y IA.
+Docente universitaria e investigadora en:
 
-Licencia
+* infraestructura TI
+* inteligencia artificial
+* analítica avanzada
+
+---
+
+# 📄 Licencia
 
 Proyecto educativo para uso académico.
+
+Su uso está permitido para actividades docentes, laboratorios y formación en infraestructura tecnológica.
+
+---
+
+⭐ Si este proyecto te resulta útil para enseñanza o entrenamiento en infraestructura, considera darle una estrella en GitHub.
