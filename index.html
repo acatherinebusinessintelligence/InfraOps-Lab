@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>InfraOps Lab: Simulador de Infraestructura con IA</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     :root{
       --bg1:#081226;
@@ -539,7 +540,100 @@
       ].join('\n'));
       window.location.href = 'mailto:' + (state.studentEmail || '') + '?subject=' + subject + '&body=' + body;
     }
+    function generateResultPDF(){
+  const jsPDFLib = window.jspdf;
 
+  if(!jsPDFLib || !jsPDFLib.jsPDF){
+    alert('No fue posible cargar la librería PDF.');
+    return;
+  }
+
+  const jsPDF = jsPDFLib.jsPDF;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const mission = getMission();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 44;
+  let y = 52;
+
+  function line(text, size = 11, color = [51,65,85], gap = 18, bold = false){
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.setFontSize(size);
+    doc.setTextColor(color[0], color[1], color[2]);
+
+    const lines = doc.splitTextToSize(String(text), pageWidth - margin * 2);
+
+    if(y + (lines.length * gap) > pageHeight - 50){
+      doc.addPage();
+      y = 52;
+    }
+
+    doc.text(lines, margin, y);
+    y += lines.length * gap;
+  }
+
+  doc.setFillColor(8, 18, 38);
+  doc.rect(0, 0, pageWidth, 90, 'F');
+
+  doc.setTextColor(56, 189, 248);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(24);
+  doc.text('InfraOps Lab', margin, 42);
+
+  doc.setTextColor(229, 238, 252);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Resultado de simulación de infraestructura', margin, 64);
+
+  y = 120;
+
+  line('Resumen general', 16, [15,23,42], 20, true);
+  line('Estudiante: ' + state.studentName, 11, [15,23,42]);
+  line('Grupo: ' + (state.studentGroup || 'N/A'));
+  line('Correo: ' + (state.studentEmail || 'N/A'));
+  line('Código de verificación: ' + state.verificationCode);
+  line('Misión: ' + (mission ? mission.title : 'Simulación'));
+  line('Puntaje global: ' + (state.score + overallHealth()));
+  line('Salud final: ' + overallHealth() + '%');
+  line('Vidas restantes: ' + state.lives);
+  line('Tiempo restante: ' + formatTime(state.timeLeft));
+
+  y += 8;
+  line('Métricas del sistema', 16, [15,23,42], 20, true);
+  line('Disponibilidad: ' + state.metrics.availability + '%');
+  line('Rendimiento: ' + state.metrics.performance + '%');
+  line('Seguridad: ' + state.metrics.security + '%');
+  line('Presupuesto: ' + state.metrics.budget + '%');
+
+  if(state.teacherMode){
+    y += 8;
+    line('Rúbrica docente', 16, [15,23,42], 20, true);
+    line('Criterio técnico: ' + state.rubric.tecnico + '/5');
+    line('Análisis y priorización: ' + state.rubric.analisis + '/5');
+    line('Continuidad del servicio: ' + state.rubric.continuidad + '/5');
+    line('Seguridad y control: ' + state.rubric.seguridad + '/5');
+  }
+
+  y += 8;
+  line('Decisiones ejecutadas', 16, [15,23,42], 20, true);
+
+  if(!state.decisions.length){
+    line('No hay decisiones registradas.');
+  } else {
+    state.decisions.forEach((d, i) => {
+      line((i + 1) + '. ' + d.title, 11, [15,23,42], 16, true);
+      line('Tipo: ' + (d.type === 'good' ? 'Correcta' : d.type === 'bad' ? 'Riesgosa' : 'Parcial'));
+      line('Justificación: ' + d.rationale, 10, [71,85,105], 15, false);
+      y += 4;
+    });
+  }
+
+  doc.setFontSize(9);
+  doc.setTextColor(100,116,139);
+  doc.text('Generado por InfraOps Lab · ' + new Date().toLocaleString('es-CO'), margin, pageHeight - 24);
+
+  doc.save((state.studentName.replace(/\s+/g, '_') || 'estudiante') + '_' + state.verificationCode + '.pdf');
+}
     function saveRanking(){
       const entry = {
         student: state.studentName,
@@ -1235,6 +1329,7 @@
           </section>
 
           <div class="flex flex-wrap gap-3">
+            <button onclick="generateResultPDF()" class="rounded-2xl px-5 py-3 border border-fuchsia-500/50 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 font-semibold text-fuchsia-200">Descargar resultado PDF</button>
             <button onclick="downloadResultFile()" class="rounded-2xl px-5 py-3 border border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/20 font-semibold text-emerald-200">Descargar resultado JSON</button>
             <button onclick="openMailDraft()" class="rounded-2xl px-5 py-3 border border-cyan-500/50 bg-cyan-500/10 hover:bg-cyan-500/20 font-semibold text-cyan-200">Preparar correo</button>
             <button onclick="startMission(${state.missionIndex})" class="rounded-2xl px-5 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black">Reintentar misión</button>
@@ -1275,7 +1370,7 @@
     window.nextStage = nextStage;
     window.downloadResultFile = downloadResultFile;
     window.openMailDraft = openMailDraft;
-
+    window.generateResultPDF = generateResultPDF;
     initializeMissions();
     loadRanking();
     render();
