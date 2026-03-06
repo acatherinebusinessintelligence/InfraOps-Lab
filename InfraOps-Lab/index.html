@@ -1,0 +1,1162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>InfraOps Lab: Simulador de Infraestructura con IA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root{
+      --bg1:#081226;
+      --bg2:#0d1b39;
+      --panel:#0f172acc;
+      --card:#111827ee;
+      --line:#24314f;
+      --soft:#94a3b8;
+      --ok:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --accent:#38bdf8;
+      --accent2:#8b5cf6;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      color:#e5eefc;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:
+        radial-gradient(900px 500px at 8% 5%, rgba(56,189,248,.16), transparent 45%),
+        radial-gradient(900px 550px at 92% 10%, rgba(139,92,246,.14), transparent 45%),
+        linear-gradient(180deg,var(--bg2),var(--bg1));
+      min-height:100vh;
+    }
+    .glass{
+      background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.92));
+      border:1px solid rgba(148,163,184,.16);
+      box-shadow:0 20px 60px rgba(0,0,0,.35);
+      backdrop-filter: blur(12px);
+    }
+    .metric-bar{
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#1f2937;
+      border:1px solid rgba(255,255,255,.05);
+    }
+    .metric-fill{
+      height:100%;
+      border-radius:999px;
+      transition:width .45s ease;
+    }
+    .option-card{
+      transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .option-card:hover{
+      transform:translateY(-2px);
+      border-color:rgba(56,189,248,.55);
+      box-shadow:0 10px 25px rgba(56,189,248,.12);
+      background:rgba(15,23,42,.95);
+    }
+    .pill{
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.75);
+    }
+    .terminal{
+      background:linear-gradient(180deg,#08111f,#040812);
+      border:1px solid rgba(56,189,248,.18);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+    .blink::after{
+      content:'▍';
+      margin-left:4px;
+      animation:blink 1s step-end infinite;
+      color:#38bdf8;
+    }
+    @keyframes blink{50%{opacity:0}}
+    .fade-in{animation:fadeIn .4s ease both}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .grid-bg{
+      background-image:
+        linear-gradient(rgba(148,163,184,.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148,163,184,.06) 1px, transparent 1px);
+      background-size: 28px 28px;
+      background-position: center;
+    }
+    .choice-good{border-color:rgba(34,197,94,.6)!important; box-shadow:0 0 0 1px rgba(34,197,94,.2), 0 12px 30px rgba(34,197,94,.12)!important}
+    .choice-bad{border-color:rgba(239,68,68,.6)!important; box-shadow:0 0 0 1px rgba(239,68,68,.2), 0 12px 30px rgba(239,68,68,.12)!important}
+    .choice-neutral{border-color:rgba(245,158,11,.6)!important; box-shadow:0 0 0 1px rgba(245,158,11,.2), 0 12px 30px rgba(245,158,11,.12)!important}
+    .icon-node{display:flex;align-items:center;gap:.55rem;padding:.7rem .85rem;border-radius:1rem;border:1px solid rgba(148,163,184,.16);background:rgba(2,6,23,.55)}
+    .icon-badge{width:2rem;height:2rem;border-radius:.85rem;display:flex;align-items:center;justify-content:center;font-size:1rem;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.22)}
+    .input-dark{background:rgba(2,6,23,.65);border:1px solid rgba(148,163,184,.18);color:#e5eefc}
+    .input-dark:focus{outline:none;border-color:rgba(56,189,248,.7);box-shadow:0 0 0 3px rgba(56,189,248,.12)}
+  </style>
+</head>
+<body class="grid-bg">
+  <div id="app" class="max-w-7xl mx-auto px-4 py-6 md:px-6 lg:px-8"></div>
+
+  <script>
+    const BASE_MISSIONS = [
+      {
+        id: 1,
+        title: "Matrículas en riesgo",
+        level: "Intermedio",
+        badge: "Operaciones críticas",
+        category: "Aplicaciones + rendimiento",
+        architecture: ["🖥️ Servidor web", "🗄️ Base de datos", "⚖️ Balanceador", "🧠 Caché"],
+        context: "La plataforma de matrículas de la universidad presenta lentitud severa y desconexiones en horas pico. Se aproxima el cierre académico y miles de estudiantes intentan acceder al mismo tiempo.",
+        objective: "Restablecer el servicio con el menor impacto posible en disponibilidad, seguridad y costo operativo.",
+        indicators: [
+          "CPU del servidor web principal al 92%",
+          "Memoria en 68%",
+          "Latencia de respuesta promedio: 8.2 s",
+          "Picos de 4x en conexiones simultáneas",
+          "Base de datos con alto volumen de consultas repetitivas"
+        ],
+        aiIntro: "Detecto patrón de saturación en capa web y posible ineficiencia en acceso a datos. Tu prioridad debe ser reducir impacto inmediato sin empeorar el incidente.",
+        options: [
+          { id: "A", title: "Reiniciar el servidor principal de inmediato", type: "bad", rationale: "El reinicio puede causar una interrupción adicional y no resuelve la causa raíz. Solo oculta temporalmente el síntoma.", impact: {availability:-18, performance:-6, security:0, budget:-4, score:-8} },
+          { id: "B", title: "Revisar consultas a base de datos y habilitar caché para lecturas frecuentes", type: "good", rationale: "Ataca una posible causa estructural de la lentitud. Optimizar consultas y caché reduce carga transversal y mejora tiempos de respuesta de forma sostenible.", impact: {availability:+8, performance:+22, security:0, budget:-6, score:+18} },
+          { id: "C", title: "Aumentar memoria RAM sin revisar otros cuellos de botella", type: "neutral", rationale: "Puede ayudar marginalmente, pero los indicadores no muestran un cuello claro por memoria. Es una mejora parcial y no prioritaria.", impact: {availability:+2, performance:+5, security:0, budget:-8, score:+4} },
+          { id: "D", title: "Agregar balanceador y segunda instancia web para repartir carga", type: "good", rationale: "Es una respuesta sólida frente al crecimiento de conexiones simultáneas. Mejora resiliencia y disponibilidad, especialmente en periodos pico.", impact: {availability:+18, performance:+12, security:+2, budget:-12, score:+16} },
+          { id: "E", title: "Pausar temporalmente módulos no críticos mientras se estabiliza la plataforma", type: "neutral", rationale: "Reduce presión sobre recursos, aunque no corrige directamente la causa raíz. Puede servir como medida de contención temporal.", impact: {availability:+6, performance:+6, security:0, budget:-2, score:+6} }
+        ],
+        followupPrompt: "¿Cuál sería tu siguiente decisión táctica?",
+        followups: [
+          {
+            question: "Se observa gran parte del tráfico proviniendo de páginas estáticas y recursos repetidos. ¿Qué estrategia priorizas?",
+            options: [
+              { title:"Implementar CDN y compresión de recursos", type:"good", rationale:"Reduce carga en origen y mejora experiencia de usuario en accesos concurrentes.", impact:{availability:+8, performance:+16, security:+2, budget:-8, score:+14}},
+              { title:"Desactivar logs del sistema para liberar disco", type:"bad", rationale:"Puedes perder trazabilidad crítica durante un incidente y el beneficio sería marginal.", impact:{availability:-3, performance:+1, security:-8, budget:+1, score:-6}},
+              { title:"Esperar 30 minutos para validar si el pico disminuye solo", type:"bad", rationale:"En un servicio académico crítico, la inacción agrava el impacto reputacional y operativo.", impact:{availability:-12, performance:-10, security:0, budget:0, score:-10}},
+              { title:"Escalar horizontalmente con reglas automáticas por umbral de CPU", type:"good", rationale:"Responde mejor a picos impredecibles y fortalece elasticidad del servicio.", impact:{availability:+10, performance:+11, security:+1, budget:-10, score:+13}}
+            ]
+          }
+        ]
+      },
+      {
+        id: 2,
+        title: "Ataque sobre portal institucional",
+        level: "Avanzado",
+        badge: "Seguridad + continuidad",
+        category: "Perímetro + identidad",
+        architecture: ["🧱 Firewall", "🛡️ WAF", "⚖️ Balanceador", "🔐 Login/MFA"],
+        context: "El portal institucional recibe un aumento masivo de tráfico no habitual. Los usuarios reportan indisponibilidad intermitente y el equipo sospecha un ataque DDoS con intentos de explotación sobre formularios públicos.",
+        objective: "Contener el ataque preservando continuidad del servicio y endureciendo la superficie expuesta.",
+        indicators: [
+          "Ancho de banda al 96%",
+          "Miles de peticiones por minuto desde múltiples regiones",
+          "Errores 503 crecientes",
+          "Registros con patrones repetitivos en endpoints de login",
+          "Firewall perimetral sin reglas recientes de mitigación"
+        ],
+        aiIntro: "La disponibilidad está comprometida, pero no debes sacrificar trazabilidad ni abrir una brecha secundaria. Piensa en mitigación por capas.",
+        options: [
+          { id: "A", title: "Bloquear manualmente direcciones IP una por una", type: "bad", rationale: "Frente a ataques distribuidos esta acción no escala y consume tiempo valioso del equipo operativo.", impact: {availability:-10, performance:-5, security:+2, budget:-2, score:-6} },
+          { id: "B", title: "Activar CDN/WAF con mitigación anti-DDoS y reglas específicas para tráfico anómalo", type: "good", rationale: "Protege la capa de aplicación, filtra patrones maliciosos y descarga infraestructura de origen. Es una respuesta estratégica y escalable.", impact: {availability:+22, performance:+14, security:+18, budget:-10, score:+22} },
+          { id: "C", title: "Apagar el portal completo hasta nuevo aviso", type: "neutral", rationale: "Preserva activos, pero interrumpe el servicio y no construye una defensa activa. Solo sería razonable como último recurso extremo.", impact: {availability:-14, performance:+3, security:+8, budget:0, score:-1} },
+          { id: "D", title: "Aumentar CPU de los servidores sin analizar patrón del ataque", type: "bad", rationale: "Escalar recursos sin mitigación filtra más costo, pero no corta el ataque ni protege la aplicación.", impact: {availability:+2, performance:+4, security:-6, budget:-14, score:-4} },
+          { id: "E", title: "Aplicar reglas de rate limiting, geoblocking temporal y revisión de endpoints expuestos", type: "good", rationale: "Introduce controles tácticos inmediatos y reduce superficie expuesta mientras se estabiliza la plataforma.", impact: {availability:+12, performance:+8, security:+14, budget:-4, score:+16} }
+        ],
+        followupPrompt: "La amenaza disminuye, pero aún hay intentos sobre autenticación. ¿Qué haces ahora?",
+        followups: [
+          {
+            question: "Se detectan múltiples intentos automatizados sobre inicio de sesión. ¿Qué control refuerzas primero?",
+            options: [
+              { title:"MFA, rate limiting y endurecimiento del login", type:"good", rationale:"Reduce abuso automatizado y fortalece acceso en la capa de identidad.", impact:{availability:+4, performance:+4, security:+18, budget:-5, score:+16}},
+              { title:"Ocultar temporalmente mensajes de error sin más cambios", type:"neutral", rationale:"Disminuye señal para atacantes, pero es insuficiente como control principal.", impact:{availability:0, performance:0, security:+4, budget:0, score:+3}},
+              { title:"Eliminar registros para evitar llenar el almacenamiento", type:"bad", rationale:"Pierdes evidencia crítica para respuesta a incidentes y análisis forense.", impact:{availability:0, performance:+1, security:-12, budget:+1, score:-8}},
+              { title:"Implementar CAPTCHA adaptativo y alertamiento SIEM por patrón sospechoso", type:"good", rationale:"Añade fricción a ataques automatizados y mejora detección temprana.", impact:{availability:+2, performance:+1, security:+14, budget:-4, score:+12}}
+            ]
+          }
+        ]
+      },
+      {
+        id: 3,
+        title: "Respaldo y recuperación fallidos",
+        level: "Avanzado",
+        badge: "Continuidad del negocio",
+        category: "Backup + DRP",
+        architecture: ["💾 Repositorio backup", "🧪 Pruebas restore", "🗃️ Storage", "📦 Réplica"],
+        context: "Tras una falla de almacenamiento, el equipo intenta restaurar servicios esenciales. Descubren que varios respaldos recientes están corruptos y el RTO acordado con negocio está en riesgo.",
+        objective: "Recuperar operaciones críticas, reducir pérdida de datos y dejar un plan de continuidad más robusto.",
+        indicators: [
+          "Cabina de almacenamiento con fallas SMART recurrentes",
+          "Backup incremental de las últimas 48h no verificable",
+          "No existen pruebas de restauración documentadas del último trimestre",
+          "RPO comprometido para sistema financiero",
+          "Aplicaciones secundarias comparten el mismo repositorio de respaldo"
+        ],
+        aiIntro: "No basta con tener backup; importa su verificabilidad, aislamiento y capacidad real de restauración. Prioriza por criticidad.",
+        options: [
+          { id: "A", title: "Restaurar primero los sistemas críticos desde el último respaldo íntegro validado", type: "good", rationale: "La priorización por criticidad reduce impacto de negocio y alinea recuperación con continuidad operativa.", impact: {availability:+20, performance:+7, security:+4, budget:-6, score:+18} },
+          { id: "B", title: "Intentar recuperar todos los servicios al mismo tiempo", type: "bad", rationale: "Diluyes recursos, aumentas complejidad y retrasas la recuperación de los servicios más importantes.", impact: {availability:-8, performance:-4, security:0, budget:-10, score:-7} },
+          { id: "C", title: "Esperar a que el proveedor revise antes de iniciar acciones internas", type: "bad", rationale: "La dependencia total del proveedor retrasa respuesta. Debe activarse el plan interno de recuperación inmediatamente.", impact: {availability:-15, performance:-6, security:0, budget:0, score:-8} },
+          { id: "D", title: "Migrar todo a nueva infraestructura sin validación de integridad", type: "neutral", rationale: "La renovación puede ser útil después, pero en crisis primero importa recuperar con control y evidencia de integridad.", impact: {availability:+3, performance:+5, security:-2, budget:-18, score:+1} },
+          { id: "E", title: "Activar comité de continuidad y priorizar por RTO/RPO acordado con negocio", type: "good", rationale: "Ordena la recuperación con base en criticidad real y evita decisiones técnicas desconectadas del impacto de negocio.", impact: {availability:+8, performance:+4, security:+4, budget:-2, score:+11} }
+        ],
+        followupPrompt: "Tras estabilizar parcialmente el servicio, debes evitar repetición del incidente. ¿Cuál es la mejora más madura?",
+        followups: [
+          {
+            question: "¿Qué medida fortalece de verdad la estrategia de continuidad?",
+            options: [
+              { title:"Pruebas periódicas de restauración, backup inmutable y réplica separada", type:"good", rationale:"Eleva resiliencia real, verificabilidad y recuperación frente a corrupción o ransomware.", impact:{availability:+8, performance:+3, security:+18, budget:-9, score:+18}},
+              { title:"Hacer más backups en el mismo repositorio actual", type:"neutral", rationale:"Aumenta cantidad, pero no resuelve riesgo de corrupción compartida ni aislamiento insuficiente.", impact:{availability:+2, performance:0, security:+2, budget:-4, score:+3}},
+              { title:"Reducir frecuencia de backups para ahorrar almacenamiento", type:"bad", rationale:"Aumenta la ventana de pérdida de datos y empeora el RPO.", impact:{availability:-6, performance:0, security:-6, budget:+5, score:-7}},
+              { title:"Documentar runbooks de recuperación y asignar responsables por servicio", type:"good", rationale:"La recuperación madura no depende solo de tecnología; también de procesos y responsabilidades claras.", impact:{availability:+4, performance:+3, security:+6, budget:-2, score:+10}}
+            ]
+          }
+        ]
+      },
+      {
+        id: 4,
+        title: "Escalamiento híbrido en la nube",
+        level: "Intermedio",
+        badge: "Cloud burst",
+        category: "Nube híbrida",
+        architecture: ["☁️ Nube pública", "🖥️ On-prem", "⚖️ Balanceador", "🔒 VPN/Conectividad"],
+        context: "Una campaña institucional dispara el tráfico del portal de admisiones. La infraestructura local se acerca a su límite y se evalúa descargar capacidad hacia nube pública.",
+        objective: "Escalar sin comprometer conectividad, seguridad y control de costos.",
+        indicators: [
+          "CPU on-prem al 88% sostenido",
+          "Almacenamiento estable pero front-end saturado",
+          "Pico previsto por campaña durante 6 horas",
+          "Enlace VPN con capacidad moderada",
+          "No hay autoscaling configurado actualmente"
+        ],
+        aiIntro: "El caso sugiere una estrategia de cloud burst. No escales por inercia: valida red, costos y diseño de distribución de carga.",
+        options: [
+          { id:"A", title:"Mover toda la base de datos a nube en caliente sin pruebas", type:"bad", rationale:"Cambiar el componente más sensible en plena contingencia multiplica riesgo operativo y de consistencia.", impact:{availability:-12, performance:-6, security:-4, budget:-8, score:-8}},
+          { id:"B", title:"Desplegar instancias web temporales en nube y enrutar tráfico con balanceador", type:"good", rationale:"Escala el plano de presentación, donde está el cuello más evidente, manteniendo la base crítica estable.", impact:{availability:+16, performance:+18, security:+4, budget:-10, score:+18}},
+          { id:"C", title:"Esperar a que termine la campaña y monitorear", type:"bad", rationale:"La inacción ante saturación previsible reduce resiliencia y afecta experiencia del usuario.", impact:{availability:-10, performance:-8, security:0, budget:0, score:-7}},
+          { id:"D", title:"Reducir imágenes y activar CDN antes del burst", type:"good", rationale:"Disminuye carga de origen y hace más eficiente el escalamiento híbrido.", impact:{availability:+8, performance:+12, security:+2, budget:-4, score:+12}},
+          { id:"E", title:"Escalar verticalmente todos los servidores locales", type:"neutral", rationale:"Puede ayudar, pero es menos elástico y podría encarecer sin resolver la ventana pico de forma óptima.", impact:{availability:+5, performance:+7, security:0, budget:-12, score:+5}} 
+        ],
+        followupPrompt: "El burst funcionó, pero surge duda sobre costos y gobernanza. ¿Qué control maduras ahora?",
+        followups: [
+          {
+            question: "¿Qué práctica fortalece el modelo híbrido a futuro?",
+            options: [
+              { title:"Etiquetado de recursos, presupuesto por servicio y alarmas de costo", type:"good", rationale:"Sin FinOps básico, el escalamiento híbrido puede ser técnicamente correcto pero financieramente ineficiente.", impact:{availability:+1, performance:+1, security:+2, budget:+8, score:+12}},
+              { title:"Dejar los recursos en nube corriendo permanentemente por si acaso", type:"bad", rationale:"Introduce derroche presupuestal y baja disciplina operativa.", impact:{availability:+1, performance:+1, security:0, budget:-15, score:-6}},
+              { title:"Documentar arquitectura objetivo y política de activación/desactivación", type:"good", rationale:"Formaliza operación, reduce improvisación y mejora repetibilidad.", impact:{availability:+3, performance:+2, security:+4, budget:+3, score:+10}},
+              { title:"Quitar controles de red para acelerar despliegues", type:"bad", rationale:"La velocidad sin gobernanza abre brechas de seguridad innecesarias.", impact:{availability:0, performance:+2, security:-12, budget:0, score:-7}}
+            ]
+          }
+        ]
+      },
+      {
+        id: 5,
+        title: "Clúster de virtualización degradado",
+        level: "Avanzado",
+        badge: "Virtualización",
+        category: "Hipervisor + capacidad",
+        architecture: ["🧩 Hipervisor", "📦 VM", "🗄️ Storage compartido", "🌐 vSwitch"],
+        context: "Varias máquinas virtuales muestran degradación simultánea. Un host del clúster registra sobreasignación de CPU y datastore cercano al límite.",
+        objective: "Estabilizar el clúster sin provocar indisponibilidad innecesaria ni sobrecomprometer almacenamiento.",
+        indicators: [
+          "CPU Ready elevado en VMs críticas",
+          "Datastore al 91%",
+          "Snapshots antiguos sin depurar",
+          "Host 1 con 2x más carga que los demás",
+          "Alertas de latencia en storage compartido"
+        ],
+        aiIntro: "El problema parece de capacidad combinada: cómputo, almacenamiento y mala higiene operativa. Reequilibra antes de improvisar migraciones masivas.",
+        options: [
+          { id:"A", title:"Migrar en vivo VMs críticas a hosts menos cargados y revisar DRS", type:"good", rationale:"Reduce contención de CPU y distribuye carga de forma controlada.", impact:{availability:+12, performance:+15, security:0, budget:-2, score:+15}},
+          { id:"B", title:"Eliminar snapshots antiguos y ampliar datastore planificadamente", type:"good", rationale:"Mejora salud del almacenamiento y disminuye riesgo de degradación por I/O.", impact:{availability:+8, performance:+10, security:+1, budget:-8, score:+12}},
+          { id:"C", title:"Apagar VMs no críticas al azar para liberar recursos", type:"neutral", rationale:"Puede liberar capacidad, pero sin criterio puede afectar servicios secundarios relevantes y generar quejas evitables.", impact:{availability:+3, performance:+5, security:0, budget:0, score:+4}},
+          { id:"D", title:"Crear más VMs en el mismo datastore saturado", type:"bad", rationale:"Aumenta presión sobre el componente ya degradado.", impact:{availability:-9, performance:-8, security:0, budget:-4, score:-7}},
+          { id:"E", title:"Ignorar alertas hasta la ventana de mantenimiento semanal", type:"bad", rationale:"La contención ya está afectando servicios; aplazar la respuesta agrava la degradación.", impact:{availability:-12, performance:-9, security:0, budget:0, score:-8}}
+        ],
+        followupPrompt: "El clúster se estabiliza parcialmente. ¿Qué práctica madura la plataforma?",
+        followups: [
+          {
+            question: "¿Qué control de capacidad implementas?",
+            options: [
+              { title:"Umbrales de capacidad, revisión de overcommit y política de snapshots", type:"good", rationale:"Establece disciplina operacional y evita degradación repetitiva.", impact:{availability:+4, performance:+7, security:+1, budget:+2, score:+10}},
+              { title:"Permitir snapshots indefinidos para comodidad del equipo", type:"bad", rationale:"Eso deteriora almacenamiento y eleva riesgo operativo.", impact:{availability:-5, performance:-6, security:0, budget:-2, score:-6}},
+              { title:"Monitorear CPU Ready y latencia de storage de forma continua", type:"good", rationale:"Observabilidad específica mejora decisiones preventivas.", impact:{availability:+3, performance:+5, security:+1, budget:-1, score:+9}},
+              { title:"Comprar hardware sin revisar patrones reales de uso", type:"neutral", rationale:"Puede ayudar, pero sin diagnóstico puede derivar en sobredimensionamiento.", impact:{availability:+2, performance:+3, security:0, budget:-14, score:+2}}
+            ]
+          }
+        ]
+      },
+      {
+        id: 6,
+        title: "Incidente ITIL en mesa de servicio",
+        level: "Intermedio",
+        badge: "ITIL + operación",
+        category: "Gestión de incidentes",
+        architecture: ["🎫 Mesa de ayuda", "📊 Monitoreo", "🧠 Base de conocimiento", "👥 Escalamiento"],
+        context: "La mesa de servicio recibe múltiples reportes sobre caída intermitente de un sistema de gestión documental. Hay tickets duplicados, escalamiento confuso y usuarios molestos.",
+        objective: "Aplicar una respuesta alineada con gestión de incidentes, priorización y comunicación efectiva.",
+        indicators: [
+          "Más de 35 tickets en 20 minutos",
+          "Sin clasificación clara por impacto/urgencia",
+          "Usuarios clave sin comunicación oficial",
+          "Monitoreo reporta degradación, no caída total",
+          "No existe workaround documentado"
+        ],
+        aiIntro: "No todo incidente se resuelve solo con tecnología. Aquí importa ordenar la operación, clasificar, comunicar y escalar con criterio.",
+        options: [
+          { id:"A", title:"Consolidar tickets, clasificar impacto/urgencia y abrir incidente mayor si aplica", type:"good", rationale:"Ordena la gestión y permite respuesta coordinada basada en criticidad real.", impact:{availability:+6, performance:+4, security:0, budget:+1, score:+12}},
+          { id:"B", title:"Pedir a cada analista que responda por separado los tickets", type:"bad", rationale:"Duplica esfuerzo, fragmenta información y ralentiza contención.", impact:{availability:-4, performance:-3, security:0, budget:-2, score:-5}},
+          { id:"C", title:"No comunicar nada hasta identificar causa raíz exacta", type:"bad", rationale:"La ausencia de comunicación degrada confianza y empeora percepción del servicio.", impact:{availability:-3, performance:0, security:0, budget:0, score:-5}},
+          { id:"D", title:"Publicar comunicación inicial con estado, alcance y próxima actualización", type:"good", rationale:"La comunicación es parte del control del incidente y reduce presión innecesaria sobre la mesa.", impact:{availability:+3, performance:+1, security:0, budget:0, score:+9}},
+          { id:"E", title:"Escalar al grupo técnico con evidencia de monitoreo y síntomas consolidados", type:"good", rationale:"Mejora calidad del escalamiento y acelera diagnóstico técnico.", impact:{availability:+5, performance:+5, security:0, budget:0, score:+10}}
+        ],
+        followupPrompt: "El incidente se repite en semanas posteriores. ¿Qué haces desde gestión?",
+        followups: [
+          {
+            question: "¿Qué práctica ITIL reduce recurrencia?",
+            options: [
+              { title:"Crear registro de problema, análisis de causa raíz y workaround formal", type:"good", rationale:"Diferencia entre gestionar el incidente actual y resolver la causa sistémica.", impact:{availability:+5, performance:+6, security:0, budget:-2, score:+13}},
+              { title:"Cerrar tickets sin documentar porque el servicio volvió", type:"bad", rationale:"Se pierde aprendizaje y aumenta la probabilidad de repetición.", impact:{availability:-4, performance:-2, security:0, budget:0, score:-6}},
+              { title:"Actualizar base de conocimiento y runbook del incidente", type:"good", rationale:"Fortalece respuesta futura y reduce tiempo medio de resolución.", impact:{availability:+3, performance:+5, security:0, budget:0, score:+9}},
+              { title:"Cambiar herramienta de tickets sin análisis adicional", type:"neutral", rationale:"La herramienta no necesariamente es la causa del caos operativo.", impact:{availability:+1, performance:+1, security:0, budget:-10, score:+1}}
+            ]
+          }
+        ]
+      },
+      {
+        id: 7,
+        title: "Monitoreo ciego en datacenter",
+        level: "Avanzado",
+        badge: "Observabilidad",
+        category: "Datacenter + monitoreo",
+        architecture: ["📡 Sensores", "📈 Dashboards", "🚨 Alertas", "🖥️ Core services"],
+        context: "El datacenter experimenta variaciones térmicas y microcortes, pero el equipo solo se entera cuando ya hay degradación visible en servicios críticos.",
+        objective: "Diseñar una respuesta que combine monitoreo técnico, alertamiento y prevención operativa.",
+        indicators: [
+          "Temperatura de sala sube 4°C en 15 minutos",
+          "Alertas de UPS no integradas al NOC",
+          "Varios servidores muestran throttling",
+          "No existen dashboards unificados",
+          "El equipo depende de revisión manual"
+        ],
+        aiIntro: "La infraestructura no puede depender de enterarse tarde. Necesitas telemetría útil, alertas accionables y visibilidad de extremos a extremos.",
+        options: [
+          { id:"A", title:"Integrar sensores ambientales, UPS y métricas de servidores en tablero central", type:"good", rationale:"Unifica visibilidad y permite detectar antes de que la degradación llegue al usuario.", impact:{availability:+12, performance:+8, security:+1, budget:-6, score:+15}},
+          { id:"B", title:"Pedir que el equipo revise la sala cada hora", type:"neutral", rationale:"Puede ayudar de forma limitada, pero es reactivo y poco escalable.", impact:{availability:+2, performance:+1, security:0, budget:-1, score:+3}},
+          { id:"C", title:"Desactivar alertas para evitar fatiga del equipo", type:"bad", rationale:"Silenciar síntomas no resuelve el problema y aumenta ceguera operacional.", impact:{availability:-8, performance:-6, security:-2, budget:0, score:-7}},
+          { id:"D", title:"Definir umbrales, severidades y escalamiento automático al NOC", type:"good", rationale:"No basta medir: hay que activar respuesta con contexto y prioridad.", impact:{availability:+8, performance:+5, security:+1, budget:-2, score:+12}},
+          { id:"E", title:"Cambiar servidores de rack sin revisar climatización ni energía", type:"bad", rationale:"Ataca síntomas visibles, pero ignora factores sistémicos de la degradación.", impact:{availability:-3, performance:+1, security:0, budget:-15, score:-4}}
+        ],
+        followupPrompt: "La visibilidad mejora. ¿Qué consolidación hace maduro al NOC?",
+        followups: [
+          {
+            question: "¿Qué práctica refuerza monitoreo útil para operación?",
+            options: [
+              { title:"Runbooks por alerta crítica y correlación entre eventos de infraestructura", type:"good", rationale:"Ayuda a convertir señales en acciones rápidas y consistentes.", impact:{availability:+4, performance:+5, security:+1, budget:0, score:+10}},
+              { title:"Más alertas sin priorización", type:"bad", rationale:"Genera ruido y reduce calidad de respuesta.", impact:{availability:-2, performance:-2, security:0, budget:0, score:-5}},
+              { title:"Indicadores de MTTR, MTTD y revisión post-incidente", type:"good", rationale:"Permite medir madurez operativa y mejorar continuamente.", impact:{availability:+3, performance:+3, security:0, budget:+1, score:+9}},
+              { title:"Confiar solo en dashboards sin reglas automáticas", type:"neutral", rationale:"La visualización ayuda, pero sin alertamiento puede quedarse corta para incidentes rápidos.", impact:{availability:+1, performance:+1, security:0, budget:0, score:+2}}
+            ]
+          }
+        ]
+      }
+    ];
+
+    const state = {
+      screen: 'auth',
+      missionIndex: 0,
+      step: 0,
+      score: 0,
+      answered: false,
+      selectedOptionIndex: null,
+      studentName: '',
+      studentGroup: '',
+      verificationCode: '',
+      lives: 3,
+      timeLeft: 180,
+      timerId: null,
+      teacherMode: false,
+      dynamicMode: true,
+      metrics: {
+        availability: 60,
+        performance: 58,
+        security: 62,
+        budget: 75
+      },
+      logs: [
+        '[IA] Motor de simulación listo.',
+        '[SYS] Esperando inicio de misión.',
+        '[OPS] Sin incidentes activos en este momento.'
+      ],
+      decisions: [],
+      ranking: [],
+      rubric: { tecnico:0, analisis:0, continuidad:0, seguridad:0 },
+      missions: []
+    };
+
+    const app = document.getElementById('app');
+
+    function cloneData(obj){ return JSON.parse(JSON.stringify(obj)); }
+    function clamp(v){ return Math.max(0, Math.min(100, v)); }
+
+    function initializeMissions(){
+      state.missions = cloneData(BASE_MISSIONS).map(m => state.dynamicMode ? randomizeMission(m) : m);
+    }
+
+    function randomizeMission(mission){
+      const m = cloneData(mission);
+      const variants = [
+        'Se detecta además degradación intermitente en horarios de mayor demanda.',
+        'El incidente presenta variabilidad y complica el diagnóstico inicial.',
+        'Existen restricciones presupuestales para la respuesta inmediata.',
+        'Usuarios de áreas críticas reportan impacto mayor al esperado.'
+      ];
+      const pick = variants[Math.floor(Math.random()*variants.length)];
+      m.context += ' ' + pick;
+      if(m.indicators && m.indicators.length){
+        m.indicators = [...m.indicators].sort(() => Math.random() - 0.5);
+      }
+      if(m.options && m.options.length){
+        m.options = [...m.options].sort(() => Math.random() - 0.5);
+      }
+      if(m.followups){
+        m.followups = m.followups.map(f => ({...f, options:[...f.options].sort(() => Math.random() - 0.5)}));
+      }
+      return m;
+    }
+
+    function applyImpact(impact){
+      state.metrics.availability = clamp(state.metrics.availability + (impact.availability || 0));
+      state.metrics.performance  = clamp(state.metrics.performance  + (impact.performance  || 0));
+      state.metrics.security     = clamp(state.metrics.security     + (impact.security     || 0));
+      state.metrics.budget       = clamp(state.metrics.budget       + (impact.budget       || 0));
+      state.score += impact.score || 0;
+    }
+
+    function overallHealth(){
+      const {availability, performance, security, budget} = state.metrics;
+      return Math.round((availability + performance + security + budget) / 4);
+    }
+
+    function healthTone(v){
+      if(v >= 75) return 'text-emerald-400';
+      if(v >= 50) return 'text-amber-400';
+      return 'text-rose-400';
+    }
+
+    function metricColor(v){
+      if(v >= 75) return 'linear-gradient(90deg, #22c55e, #4ade80)';
+      if(v >= 50) return 'linear-gradient(90deg, #f59e0b, #fbbf24)';
+      return 'linear-gradient(90deg, #ef4444, #fb7185)';
+    }
+
+    function getMission(){ return state.missions[state.missionIndex]; }
+
+    function getCurrentStage(){
+      const mission = getMission();
+      if(state.step === 0){
+        return { question: mission.context, options: mission.options, prompt: 'Selecciona la primera acción prioritaria' };
+      }
+      return mission.followups[state.step - 1];
+    }
+
+    function makeVerificationCode(name){
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth()+1).padStart(2,'0');
+      const dd = String(now.getDate()).padStart(2,'0');
+      const hh = String(now.getHours()).padStart(2,'0');
+      const mi = String(now.getMinutes()).padStart(2,'0');
+      const ss = String(now.getSeconds()).padStart(2,'0');
+      const base = name.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8) || 'STUDENT';
+      const seq = Math.floor(100 + Math.random() * 900);
+      return `${base}-${yyyy}${mm}${dd}-${hh}${mi}${ss}-${seq}`;
+    }
+
+    function saveRanking(){
+      const entry = {
+        student: state.studentName,
+        group: state.studentGroup || 'Sin grupo',
+        score: state.score + overallHealth(),
+        health: overallHealth(),
+        mission: getMission()?.title || 'Simulación',
+        code: state.verificationCode,
+        date: new Date().toLocaleString('es-CO')
+      };
+      const current = JSON.parse(localStorage.getItem('infraops-ranking') || '[]');
+      current.push(entry);
+      current.sort((a,b) => b.score - a.score);
+      localStorage.setItem('infraops-ranking', JSON.stringify(current.slice(0,20)));
+      state.ranking = current.slice(0,10);
+    }
+
+    function loadRanking(){
+      state.ranking = JSON.parse(localStorage.getItem('infraops-ranking') || '[]').slice(0,10);
+    }
+
+    function computeRubric(){
+      const good = state.decisions.filter(d => d.type === 'good').length;
+      const neutral = state.decisions.filter(d => d.type === 'neutral').length;
+      state.rubric.tecnico = Math.min(5, Math.max(1, Math.round((state.metrics.performance + state.metrics.availability) / 40)));
+      state.rubric.analisis = Math.min(5, Math.max(1, good + (neutral ? 1 : 0)));
+      state.rubric.continuidad = Math.min(5, Math.max(1, Math.round(state.metrics.availability / 20)));
+      state.rubric.seguridad = Math.min(5, Math.max(1, Math.round(state.metrics.security / 20)));
+    }
+
+    function startTimer(){
+      stopTimer();
+      state.timerId = setInterval(() => {
+        state.timeLeft -= 1;
+        if(state.timeLeft <= 0){
+          state.timeLeft = 0;
+          state.logs.unshift('[SYS] Tiempo agotado. El incidente escala automáticamente.');
+          state.lives = Math.max(0, state.lives - 1);
+          stopTimer();
+          state.screen = 'results';
+          computeRubric();
+          saveRanking();
+        }
+        render();
+      }, 1000);
+    }
+
+    function stopTimer(){ if(state.timerId){ clearInterval(state.timerId); state.timerId = null; } }
+
+    function formatTime(sec){
+      const m = String(Math.floor(sec / 60)).padStart(2,'0');
+      const s = String(sec % 60).padStart(2,'0');
+      return `${m}:${s}`;
+    }
+
+    function resetRun(toAuth=false){
+      stopTimer();
+      state.screen = toAuth ? 'auth' : 'home';
+      state.missionIndex = 0;
+      state.step = 0;
+      state.score = 0;
+      state.answered = false;
+      state.selectedOptionIndex = null;
+      state.verificationCode = toAuth ? '' : state.verificationCode;
+      state.lives = 3;
+      state.timeLeft = 180;
+      state.metrics = { availability:60, performance:58, security:62, budget:75 };
+      state.logs = [
+        '[IA] Motor de simulación listo.',
+        '[SYS] Esperando inicio de misión.',
+        '[OPS] Sin incidentes activos en este momento.'
+      ];
+      state.decisions = [];
+      state.rubric = { tecnico:0, analisis:0, continuidad:0, seguridad:0 };
+      initializeMissions();
+      loadRanking();
+      render();
+    }
+
+    function submitStudentForm(){
+      const name = document.getElementById('studentName')?.value.trim();
+      const group = document.getElementById('studentGroup')?.value.trim();
+      const teacherMode = document.getElementById('teacherMode')?.checked;
+      const dynamicMode = document.getElementById('dynamicMode')?.checked;
+      if(!name){ alert('Ingresa el nombre del estudiante.'); return; }
+      state.studentName = name;
+      state.studentGroup = group;
+      state.teacherMode = !!teacherMode;
+      state.dynamicMode = !!dynamicMode;
+      state.verificationCode = makeVerificationCode(name);
+      initializeMissions();
+      loadRanking();
+      state.screen = 'home';
+      render();
+    }
+
+    function startMission(index){
+      state.screen = 'mission';
+      state.missionIndex = index;
+      state.step = 0;
+      state.score = 0;
+      state.answered = false;
+      state.selectedOptionIndex = null;
+      state.lives = 3;
+      state.timeLeft = 180;
+      state.metrics = { availability:60, performance:58, security:62, budget:75 };
+      state.logs = [
+        `[IA] Misión cargada: ${state.missions[index].title}`,
+        `[SYS] Código de verificación de sesión: ${state.verificationCode}`,
+        '[OPS] Esperando decisión del administrador.'
+      ];
+      state.decisions = [];
+      state.rubric = { tecnico:0, analisis:0, continuidad:0, seguridad:0 };
+      startTimer();
+      render();
+    }
+
+    function chooseOption(idx){
+      if(state.answered) return;
+      const stage = getCurrentStage();
+      const choice = stage.options[idx];
+      state.selectedOptionIndex = idx;
+      state.answered = true;
+      applyImpact(choice.impact);
+      if(choice.type === 'bad') state.lives = Math.max(0, state.lives - 1);
+      state.decisions.push({ step: state.step, title: choice.title, type: choice.type, rationale: choice.rationale });
+      state.logs.unshift(`[OPS] Acción ejecutada: ${choice.title}`);
+      state.logs.unshift(`[IA] ${choice.type === 'good' ? 'Buena práctica detectada.' : choice.type === 'bad' ? 'Riesgo operativo detectado.' : 'Acción parcialmente efectiva detectada.'}`);
+      state.logs.unshift(`[SYS] Salud actual del servicio: ${overallHealth()}%`);
+      if(state.lives <= 0){
+        stopTimer();
+        state.screen = 'results';
+        computeRubric();
+        saveRanking();
+      }
+      render();
+    }
+
+    function nextStage(){
+      const mission = getMission();
+      state.answered = false;
+      state.selectedOptionIndex = null;
+      state.step += 1;
+      if(state.step > mission.followups.length){
+        stopTimer();
+        computeRubric();
+        saveRanking();
+        state.screen = 'results';
+      } else {
+        state.logs.unshift('[SYS] Nueva señal de telemetría recibida.');
+      }
+      render();
+    }
+
+    function resultBand(){
+      const score = state.score + overallHealth();
+      if(score >= 165) return {label:'Arquitecta de Infraestructura', tone:'text-emerald-400', desc:'Gestionaste el incidente con criterio técnico, equilibrio operativo y visión sistémica.'};
+      if(score >= 130) return {label:'Operadora de Alta Capacidad', tone:'text-sky-400', desc:'Tomaste buenas decisiones y mantuviste la continuidad con base técnica consistente.'};
+      if(score >= 95) return {label:'Analista en Desarrollo', tone:'text-amber-400', desc:'Respondiste parcialmente bien, aunque aún hay oportunidades de priorización y diseño.'};
+      return {label:'Incidente Escalado', tone:'text-rose-400', desc:'La crisis superó la contención esperada. Hace falta mejorar análisis, secuencia y criterios de recuperación.'};
+    }
+
+    function renderAuth(){
+      return `
+        <section class="grid lg:grid-cols-[1.1fr_.9fr] gap-6 items-stretch fade-in">
+          <div class="glass rounded-3xl p-6 md:p-8">
+            <div class="flex flex-wrap items-center gap-3 mb-5">
+              <span class="pill rounded-full px-3 py-1 text-xs tracking-[0.25em] uppercase text-sky-300">Ingreso al laboratorio</span>
+              <span class="pill rounded-full px-3 py-1 text-xs tracking-[0.2em] uppercase text-violet-300">Trazabilidad estudiantil</span>
+            </div>
+            <h1 class="text-4xl md:text-5xl font-black leading-none max-w-4xl">
+              Inicia tu sesión en <span class="text-sky-400">InfraOps Lab</span>
+            </h1>
+            <p class="mt-5 text-slate-300 text-lg max-w-3xl leading-relaxed">
+              Registra nombre del estudiante, activa modo docente si deseas rúbrica evaluable y genera un código único de verificación con fecha y hora.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-4 mt-8">
+              <div>
+                <label class="text-sm uppercase tracking-[0.25em] text-slate-500">Nombre del estudiante</label>
+                <input id="studentName" class="input-dark w-full rounded-2xl px-4 py-3 mt-2" placeholder="Ej. Alejandra Montaña" />
+              </div>
+              <div>
+                <label class="text-sm uppercase tracking-[0.25em] text-slate-500">Grupo / curso</label>
+                <input id="studentGroup" class="input-dark w-full rounded-2xl px-4 py-3 mt-2" placeholder="Ej. NRC 83600" />
+              </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 mt-5">
+              <label class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 flex items-start gap-3 cursor-pointer">
+                <input id="teacherMode" type="checkbox" class="mt-1" checked />
+                <div>
+                  <div class="font-bold">Modo docente</div>
+                  <div class="text-slate-400 text-sm mt-1">Activa rúbrica, puntaje evaluable y resumen para seguimiento.</div>
+                </div>
+              </label>
+              <label class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 flex items-start gap-3 cursor-pointer">
+                <input id="dynamicMode" type="checkbox" class="mt-1" checked />
+                <div>
+                  <div class="font-bold">Casos dinámicos</div>
+                  <div class="text-slate-400 text-sm mt-1">Reordena señales y opciones para que la experiencia no sea siempre igual.</div>
+                </div>
+              </label>
+            </div>
+
+            <div class="mt-8 flex flex-wrap gap-3">
+              <button onclick="submitStudentForm()" class="rounded-2xl px-5 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold shadow-lg shadow-sky-500/20">Entrar al simulador</button>
+            </div>
+          </div>
+
+          <aside class="glass rounded-3xl p-5 md:p-6 flex flex-col gap-4">
+            <div>
+              <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Lo que incluye</div>
+              <div class="mt-2 text-2xl font-black blink">Modo académico potente</div>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+              <div class="flex items-center justify-between"><span class="text-slate-300">Código de verificación</span><span class="text-sky-300 font-bold">Sí</span></div>
+              <div class="flex items-center justify-between"><span class="text-slate-300">Ranking por estudiante</span><span class="text-sky-300 font-bold">Sí</span></div>
+              <div class="flex items-center justify-between"><span class="text-slate-300">Temporizador y vidas</span><span class="text-sky-300 font-bold">Sí</span></div>
+              <div class="flex items-center justify-between"><span class="text-slate-300">Rúbrica docente</span><span class="text-sky-300 font-bold">Sí</span></div>
+              <div class="flex items-center justify-between"><span class="text-slate-300">Misiones</span><span class="text-sky-300 font-bold">7</span></div>
+            </div>
+            <div class="terminal rounded-2xl p-4 text-sm font-mono text-emerald-300 min-h-[220px]">
+              <div>> Inicializando trazabilidad de sesión...</div>
+              <div class="mt-2">> Preparando ranking local de estudiantes.</div>
+              <div class="mt-2">> Activando motor de simulación dinámica.</div>
+              <div class="mt-2">> Cargando misiones: nube, virtualización, backups, ITIL, datacenter, monitoreo.</div>
+              <div class="mt-2 text-sky-300">> Estado: listo para inicio de sesión.</div>
+            </div>
+          </aside>
+        </section>
+      `;
+    }
+
+    function renderHome(){
+      return `
+        <section class="grid lg:grid-cols-[1.3fr_.7fr] gap-6 items-stretch fade-in">
+          <div class="glass rounded-3xl p-6 md:p-8">
+            <div class="flex flex-wrap items-center gap-3 mb-5">
+              <span class="pill rounded-full px-3 py-1 text-xs tracking-[0.25em] uppercase text-sky-300">InfraOps Lab</span>
+              <span class="pill rounded-full px-3 py-1 text-xs tracking-[0.2em] uppercase text-violet-300">Simulador de Infraestructura con IA</span>
+              <span class="pill rounded-full px-3 py-1 text-xs tracking-[0.2em] uppercase text-emerald-300">${state.studentName}</span>
+            </div>
+            <h1 class="text-4xl md:text-6xl font-black leading-none max-w-4xl">
+              Entrena decisiones reales de <span class="text-sky-400">infraestructura</span> bajo presión.
+            </h1>
+            <p class="mt-5 text-slate-300 text-lg max-w-3xl leading-relaxed">
+              Resuelve incidentes, protege disponibilidad, controla presupuesto y recibe retroalimentación técnica estilo IA. Diseñado para trabajar conceptos de servidores, red, seguridad, escalabilidad y continuidad del negocio.
+            </p>
+
+            <div class="grid md:grid-cols-4 gap-4 mt-8">
+              <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Modo</div>
+                <div class="mt-2 text-xl font-bold">Aprendizaje iterativo</div>
+                <div class="mt-2 text-slate-400 text-sm">Cada decisión cambia el estado del sistema y del incidente.</div>
+              </div>
+              <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Variables</div>
+                <div class="mt-2 text-xl font-bold">Disponibilidad · Rendimiento</div>
+                <div class="mt-2 text-slate-400 text-sm">También evalúa seguridad y presión presupuestal.</div>
+              </div>
+              <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Verificación</div>
+                <div class="mt-2 text-base font-bold text-sky-300">${state.verificationCode}</div>
+                <div class="mt-2 text-slate-400 text-sm">Código único por fecha y hora.</div>
+              </div>
+              <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Docente</div>
+                <div class="mt-2 text-xl font-bold">${state.teacherMode ? 'Rúbrica activa' : 'Solo juego'}</div>
+                <div class="mt-2 text-slate-400 text-sm">Evaluación ${state.teacherMode ? 'habilitada' : 'deshabilitada'}.</div>
+              </div>
+            </div>
+
+            <div class="mt-8 flex flex-wrap gap-3">
+              <button onclick="startMission(0)" class="rounded-2xl px-5 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold shadow-lg shadow-sky-500/20">Iniciar primera misión</button>
+              <button onclick="document.getElementById('missions').scrollIntoView({behavior:'smooth'})" class="rounded-2xl px-5 py-3 border border-slate-700 hover:border-slate-500 bg-slate-900/70 font-semibold">Ver misiones</button>
+              <button onclick="resetRun(true)" class="rounded-2xl px-5 py-3 border border-violet-500/50 bg-violet-500/10 hover:bg-violet-500/20 font-semibold text-violet-200">Cambiar estudiante</button>
+            </div>
+          </div>
+
+          <aside class="glass rounded-3xl p-5 md:p-6 flex flex-col gap-4">
+            <div>
+              <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Panel IA</div>
+              <div class="mt-2 text-2xl font-black blink">Sistema listo</div>
+            </div>
+            <div class="terminal rounded-2xl p-4 text-sm font-mono text-emerald-300 min-h-[220px]">
+              <div>> Inicializando motor de incidentes...</div>
+              <div class="mt-2">> Cargando reglas de evaluación: disponibilidad, rendimiento, seguridad, presupuesto.</div>
+              <div class="mt-2">> Generando telemetría simulada.</div>
+              <div class="mt-2">> Preparando retroalimentación pedagógica.</div>
+              <div class="mt-2 text-sky-300">> Estado: listo para entrenamiento.</div>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+              <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Ideal para trabajar</div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                ${['ITIL','troubleshooting','alta disponibilidad','seguridad','backup','nube','virtualización','datacenter','monitoreo'].map(tag=>`<span class="pill rounded-full px-3 py-1 text-sm text-slate-300">${tag}</span>`).join('')}
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section id="missions" class="mt-8 glass rounded-3xl p-6 md:p-8 fade-in">
+          <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+            <div>
+              <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Misiones disponibles</div>
+              <h2 class="text-3xl font-black mt-2">Selecciona tu incidente</h2>
+            </div>
+            <div class="text-slate-400 max-w-xl">Cada misión tiene variables, pistas, decisiones tácticas y una devolución final basada en el impacto de tus acciones.</div>
+          </div>
+          <div class="grid lg:grid-cols-3 gap-5">
+            ${state.missions.map((m, i)=>`
+              <article class="rounded-3xl border border-slate-800 bg-slate-950/65 p-5 flex flex-col">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="pill rounded-full px-3 py-1 text-xs uppercase tracking-[0.25em] text-violet-300">${m.level}</span>
+                  <span class="text-xs text-slate-500">Misión ${m.id}</span>
+                </div>
+                <h3 class="text-2xl font-bold mt-4">${m.title}</h3>
+                <div class="mt-2 text-sky-300 text-sm font-semibold">${m.badge}</div>
+                <div class="mt-2 text-xs uppercase tracking-[0.25em] text-slate-500">${m.category}</div>
+                <p class="mt-4 text-slate-400 leading-relaxed flex-1">${m.context}</p>
+                <button onclick="startMission(${i})" class="mt-5 rounded-2xl px-4 py-3 bg-slate-900 border border-slate-700 hover:border-sky-400 hover:bg-slate-800 font-semibold text-left">
+                  Entrar a la misión →
+                </button>
+              </article>
+            `).join('')}
+          </div>
+        </section>
+
+        <section class="mt-8 glass rounded-3xl p-6 md:p-8 fade-in">
+          <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+            <div>
+              <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Ranking local</div>
+              <h2 class="text-3xl font-black mt-2">Top estudiantes</h2>
+            </div>
+          </div>
+          <div class="grid gap-3">
+            ${state.ranking.length ? state.ranking.map((r, idx)=>`
+              <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-sky-300">${idx + 1}</div>
+                  <div>
+                    <div class="font-bold">${r.student}</div>
+                    <div class="text-slate-500 text-sm">${r.group} · ${r.mission}</div>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-sky-300 font-black text-xl">${r.score}</div>
+                  <div class="text-slate-500 text-xs">${r.code}</div>
+                </div>
+              </div>
+            `).join('') : `<div class="text-slate-500">Aún no hay resultados guardados en este navegador.</div>`}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderMetrics(){
+      const metrics = [
+        ['Disponibilidad', state.metrics.availability],
+        ['Rendimiento', state.metrics.performance],
+        ['Seguridad', state.metrics.security],
+        ['Presupuesto', state.metrics.budget]
+      ];
+      return `
+        <div class="glass rounded-3xl p-5">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Estado del sistema</div>
+              <div class="mt-1 text-2xl font-black ${healthTone(overallHealth())}">${overallHealth()}%</div>
+            </div>
+            <div class="rounded-2xl border border-slate-800 px-4 py-3 bg-slate-950/60 text-right">
+              <div class="text-xs uppercase tracking-[0.2em] text-slate-500">Score técnico</div>
+              <div class="text-2xl font-black text-sky-300">${state.score}</div>
+            </div>
+          </div>
+          <div class="mt-5 space-y-4">
+            ${metrics.map(([label, value])=>`
+              <div>
+                <div class="flex justify-between items-center text-sm mb-2">
+                  <span class="text-slate-300">${label}</span>
+                  <span class="font-bold ${healthTone(value)}">${value}%</span>
+                </div>
+                <div class="metric-bar">
+                  <div class="metric-fill" style="width:${value}%;background:${metricColor(value)}"></div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMission(){
+      const mission = getMission();
+      const stage = getCurrentStage();
+      return `
+        <div class="grid xl:grid-cols-[1.15fr_.85fr] gap-6 fade-in">
+          <main class="space-y-6">
+            <section class="glass rounded-3xl p-6 md:p-7">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div class="flex flex-wrap gap-2 mb-3">
+                    <span class="pill rounded-full px-3 py-1 text-xs uppercase tracking-[0.25em] text-sky-300">${mission.level}</span>
+                    <span class="pill rounded-full px-3 py-1 text-xs uppercase tracking-[0.25em] text-violet-300">${mission.badge}</span>
+                    <span class="pill rounded-full px-3 py-1 text-xs uppercase tracking-[0.25em] text-emerald-300">${mission.category}</span>
+                  </div>
+                  <h1 class="text-3xl md:text-4xl font-black">${mission.title}</h1>
+                  <p class="mt-3 text-slate-400 max-w-3xl leading-relaxed">${mission.objective}</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <div class="rounded-2xl px-4 py-3 border border-slate-700 bg-slate-900/70 font-semibold text-sky-300">⏱ ${formatTime(state.timeLeft)}</div>
+                  <div class="rounded-2xl px-4 py-3 border border-slate-700 bg-slate-900/70 font-semibold text-rose-300">❤ ${state.lives}</div>
+                  <button onclick="resetRun()" class="rounded-2xl px-4 py-3 border border-slate-700 bg-slate-900/70 hover:border-slate-500 font-semibold">Salir</button>
+                </div>
+              </div>
+
+              <div class="mt-6 grid md:grid-cols-2 gap-5">
+                <div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
+                  <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Contexto del incidente</div>
+                  <p class="mt-3 text-slate-300 leading-relaxed">${mission.context}</p>
+                </div>
+                <div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
+                  <div class="text-sm uppercase tracking-[0.25em] text-slate-500">IA sugiere</div>
+                  <p class="mt-3 text-sky-200 leading-relaxed">${state.step === 0 ? mission.aiIntro : mission.followupPrompt}</p>
+                </div>
+              </div>
+
+              <div class="mt-6 rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
+                <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Panel visual de arquitectura</div>
+                <div class="mt-4 grid md:grid-cols-2 gap-3">
+                  ${mission.architecture.map(x=>`<div class="icon-node"><div class="icon-badge">${x.split(' ')[0]}</div><div class="text-slate-300">${x.replace(/^\S+\s*/, '')}</div></div>`).join('')}
+                </div>
+              </div>
+
+              <div class="mt-6 rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
+                <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Telemetría inicial</div>
+                <div class="mt-4 grid md:grid-cols-2 gap-3">
+                  ${mission.indicators.map(x=>`<div class="rounded-2xl border border-slate-800 px-4 py-3 text-slate-300">${x}</div>`).join('')}
+                </div>
+              </div>
+            </section>
+
+            <section class="glass rounded-3xl p-6 md:p-7">
+              <div class="flex items-center justify-between gap-4 mb-5">
+                <div>
+                  <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Ronda ${state.step + 1}</div>
+                  <h2 class="mt-1 text-2xl font-black">${state.step === 0 ? 'Selecciona la primera acción prioritaria' : stage.question}</h2>
+                </div>
+              </div>
+
+              <div class="grid gap-4">
+                ${stage.options.map((opt, idx)=>`
+                  <button onclick="chooseOption(${idx})" ${state.answered ? 'disabled' : ''}
+                    class="option-card rounded-3xl border border-slate-800 bg-slate-950/70 p-5 text-left ${state.answered && state.selectedOptionIndex === idx ? (opt.type === 'good' ? 'choice-good' : opt.type === 'bad' ? 'choice-bad' : 'choice-neutral') : ''} ${state.answered ? 'opacity-95' : ''}">
+                    <div class="flex items-start justify-between gap-4">
+                      <div>
+                        <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Opción ${idx + 1}</div>
+                        <div class="mt-2 text-lg font-bold text-slate-100">${opt.title}</div>
+                      </div>
+                      <div class="rounded-full w-10 h-10 border border-slate-700 flex items-center justify-center text-slate-400 font-bold">${idx + 1}</div>
+                    </div>
+                    ${state.answered && state.selectedOptionIndex === idx ? `
+                      <div class="mt-4 rounded-2xl ${opt.type === 'good' ? 'bg-emerald-500/10 border-emerald-400/25 text-emerald-200' : opt.type === 'bad' ? 'bg-rose-500/10 border-rose-400/25 text-rose-200' : 'bg-amber-500/10 border-amber-400/25 text-amber-100'} border p-4">
+                        <div class="font-bold mb-2">Retroalimentación IA</div>
+                        <div class="text-sm leading-relaxed">${opt.rationale}</div>
+                      </div>
+                    ` : ''}
+                  </button>
+                `).join('')}
+              </div>
+
+              ${state.answered ? `
+                <div class="mt-6 flex flex-wrap gap-3 items-center justify-between rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
+                  <div>
+                    <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Impacto aplicado</div>
+                    <div class="mt-1 text-slate-300">La infraestructura fue recalculada con base en tu decisión.</div>
+                  </div>
+                  <button onclick="nextStage()" class="rounded-2xl px-5 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black">
+                    ${state.step >= mission.followups.length ? 'Ver resultado final' : 'Continuar a siguiente ronda'}
+                  </button>
+                </div>
+              ` : ''}
+            </section>
+          </main>
+
+          <aside class="space-y-6">
+            ${renderMetrics()}
+            <section class="glass rounded-3xl p-5">
+              <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Centro de operaciones</div>
+                  <div class="text-xl font-black mt-1">Registro del incidente</div>
+                </div>
+                <span class="pill rounded-full px-3 py-1 text-xs uppercase tracking-[0.25em] text-emerald-300">LIVE</span>
+              </div>
+              <div class="terminal rounded-3xl p-4 h-[360px] overflow-auto text-sm font-mono text-slate-300 space-y-3">
+                ${state.logs.map(log=>`<div>${log}</div>`).join('')}
+              </div>
+            </section>
+
+            <section class="glass rounded-3xl p-5">
+              <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Tus decisiones</div>
+              <div class="mt-4 space-y-3">
+                ${state.decisions.length === 0 ? `<div class="text-slate-500">Aún no has ejecutado acciones.</div>` : state.decisions.map((d, i)=>`
+                  <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                    <div class="flex items-center justify-between gap-3">
+                      <div class="font-bold">Ronda ${i + 1}</div>
+                      <span class="pill rounded-full px-3 py-1 text-xs uppercase tracking-[0.25em] ${d.type === 'good' ? 'text-emerald-300' : d.type === 'bad' ? 'text-rose-300' : 'text-amber-200'}">${d.type === 'good' ? 'óptima' : d.type === 'bad' ? 'riesgosa' : 'parcial'}</span>
+                    </div>
+                    <div class="mt-2 text-slate-300">${d.title}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </section>
+          </aside>
+        </div>
+      `;
+    }
+
+    function renderRubric(){
+      if(!state.teacherMode) return '';
+      const items = [
+        ['Criterio técnico', state.rubric.tecnico, 'Diagnóstico y elección de acciones técnicamente adecuadas.'],
+        ['Análisis y priorización', state.rubric.analisis, 'Secuencia lógica, lectura de síntomas y decisiones consistentes.'],
+        ['Continuidad del servicio', state.rubric.continuidad, 'Capacidad para sostener disponibilidad y recuperación.'],
+        ['Seguridad y control', state.rubric.seguridad, 'Protección de trazabilidad, superficie expuesta y controles.']
+      ];
+      const total = items.reduce((acc, [,score]) => acc + score, 0);
+      const percent = Math.round((total / 20) * 100);
+      return `
+        <section class="glass rounded-3xl p-6">
+          <div class="flex flex-wrap items-end justify-between gap-4 mb-5">
+            <div>
+              <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Modo docente</div>
+              <h2 class="mt-1 text-2xl font-black">Rúbrica evaluable</h2>
+            </div>
+            <div class="text-right">
+              <div class="text-xs uppercase tracking-[0.25em] text-slate-500">Resultado</div>
+              <div class="text-3xl font-black text-sky-300">${percent}%</div>
+            </div>
+          </div>
+          <div class="grid gap-4">
+            ${items.map(([title, score, desc])=>`
+              <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <div class="font-bold">${title}</div>
+                    <div class="text-slate-400 text-sm mt-1">${desc}</div>
+                  </div>
+                  <div class="rounded-2xl px-4 py-3 border border-slate-700 bg-slate-900/70 font-black text-sky-300">${score}/5</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderResults(){
+      const mission = getMission();
+      const band = resultBand();
+      const finalHealth = overallHealth();
+      return `
+        <section class="fade-in space-y-6">
+          <div class="glass rounded-3xl p-6 md:p-8">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Resultado final</div>
+                <h1 class="text-4xl md:text-5xl font-black mt-2">${mission.title}</h1>
+                <div class="mt-3 text-2xl font-black ${band.tone}">${band.label}</div>
+                <p class="mt-3 text-slate-300 max-w-3xl leading-relaxed">${band.desc}</p>
+                <div class="mt-4 flex flex-wrap gap-2">
+                  <span class="pill rounded-full px-3 py-1 text-sm text-slate-300">Estudiante: ${state.studentName}</span>
+                  <span class="pill rounded-full px-3 py-1 text-sm text-sky-300">Código: ${state.verificationCode}</span>
+                  ${state.studentGroup ? `<span class="pill rounded-full px-3 py-1 text-sm text-violet-300">${state.studentGroup}</span>` : ''}
+                </div>
+              </div>
+              <div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-5 min-w-[240px]">
+                <div class="text-xs uppercase tracking-[0.25em] text-slate-500">Puntuación global</div>
+                <div class="mt-2 text-5xl font-black text-sky-300">${state.score + finalHealth}</div>
+                <div class="mt-2 text-slate-400">Score técnico ${state.score} + salud final ${finalHealth}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid xl:grid-cols-[.9fr_1.1fr] gap-6">
+            ${renderMetrics()}
+            <section class="glass rounded-3xl p-6">
+              <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Devolución de la IA</div>
+              <div class="mt-4 space-y-4 text-slate-300 leading-relaxed">
+                <p><strong class="text-slate-100">Lectura técnica:</strong> tu secuencia de respuesta mostró ${state.decisions.filter(d=>d.type==='good').length >= 2 ? 'buen criterio de priorización y entendimiento de capas de infraestructura.' : 'una mezcla de intuiciones correctas y acciones que todavía requieren mayor análisis causal.'}</p>
+                <p><strong class="text-slate-100">Fortaleza principal:</strong> ${state.metrics.security >= 75 ? 'protegiste adecuadamente la superficie de riesgo y preservaste controles clave.' : state.metrics.availability >= 75 ? 'mantuviste la continuidad del servicio con decisiones orientadas al usuario final.' : state.metrics.performance >= 75 ? 'mejoraste los cuellos de botella con foco técnico claro.' : 'lograste sostener parcialmente la operación incluso bajo presión.'}</p>
+                <p><strong class="text-slate-100">Oportunidad de mejora:</strong> ${state.metrics.budget < 55 ? 'debiste balancear mejor costo vs. beneficio antes de escalar recursos o desplegar cambios.' : state.metrics.security < 60 ? 'faltó endurecimiento de controles y preservación de trazabilidad.' : state.metrics.availability < 60 ? 'debiste priorizar continuidad y recuperación temprana del servicio.' : 'puedes refinar aún más la secuencia de acciones y la lectura de telemetría.'}</p>
+                <p><strong class="text-slate-100">Recomendación docente:</strong> usa esta misión para discutir arquitectura por capas, observabilidad, decisiones de corto plazo vs. causa raíz y criterios de continuidad del negocio.</p>
+              </div>
+            </section>
+          </div>
+
+          ${renderRubric()}
+
+          <section class="glass rounded-3xl p-6">
+            <div class="flex flex-wrap items-end justify-between gap-4 mb-5">
+              <div>
+                <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Bitácora resumida</div>
+                <h2 class="mt-1 text-2xl font-black">Secuencia de decisiones</h2>
+              </div>
+              <div class="text-slate-400">Útil para retroalimentación en clase o discusión plenaria.</div>
+            </div>
+            <div class="grid md:grid-cols-3 gap-4">
+              ${state.decisions.map((d, i)=>`
+                <article class="rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Ronda ${i + 1}</div>
+                    <span class="pill rounded-full px-3 py-1 text-xs uppercase tracking-[0.25em] ${d.type === 'good' ? 'text-emerald-300' : d.type === 'bad' ? 'text-rose-300' : 'text-amber-200'}">${d.type === 'good' ? 'correcta' : d.type === 'bad' ? 'riesgo' : 'parcial'}</span>
+                  </div>
+                  <div class="mt-3 font-bold text-slate-100">${d.title}</div>
+                  <p class="mt-3 text-slate-400 text-sm leading-relaxed">${d.rationale}</p>
+                </article>
+              `).join('')}
+            </div>
+          </section>
+
+          <section class="glass rounded-3xl p-6">
+            <div class="flex flex-wrap items-end justify-between gap-4 mb-5">
+              <div>
+                <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Ranking actualizado</div>
+                <h2 class="mt-1 text-2xl font-black">Posición del estudiante</h2>
+              </div>
+            </div>
+            <div class="grid gap-3">
+              ${state.ranking.length ? state.ranking.map((r, idx)=>`
+                <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-sky-300">${idx + 1}</div>
+                    <div>
+                      <div class="font-bold">${r.student}</div>
+                      <div class="text-slate-500 text-sm">${r.group} · ${r.date}</div>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-sky-300 font-black text-xl">${r.score}</div>
+                    <div class="text-slate-500 text-xs">${r.code}</div>
+                  </div>
+                </div>
+              `).join('') : `<div class="text-slate-500">Aún no hay resultados guardados en este navegador.</div>`}
+            </div>
+          </section>
+
+          <div class="flex flex-wrap gap-3">
+            <button onclick="startMission(${state.missionIndex})" class="rounded-2xl px-5 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black">Reintentar misión</button>
+            <button onclick="resetRun()" class="rounded-2xl px-5 py-3 border border-slate-700 bg-slate-900/70 hover:border-slate-500 font-semibold">Volver al inicio</button>
+            <button onclick="startMission(${(state.missionIndex + 1) % state.missions.length})" class="rounded-2xl px-5 py-3 border border-violet-500/50 bg-violet-500/10 hover:bg-violet-500/20 font-semibold text-violet-200">Siguiente misión</button>
+          </div>
+        </section>
+      `;
+    }
+
+    function render(){
+      app.innerHTML = `
+        <header class="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-400 to-violet-500 shadow-lg shadow-sky-500/20 flex items-center justify-center text-slate-950 font-black text-xl">IO</div>
+            <div>
+              <div class="text-sm uppercase tracking-[0.25em] text-slate-500">Laboratorio interactivo</div>
+              <div class="text-2xl font-black">InfraOps Lab</div>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span class="pill rounded-full px-3 py-2 text-sm text-slate-300">Servidores</span>
+            <span class="pill rounded-full px-3 py-2 text-sm text-slate-300">Red</span>
+            <span class="pill rounded-full px-3 py-2 text-sm text-slate-300">Seguridad</span>
+            <span class="pill rounded-full px-3 py-2 text-sm text-slate-300">Continuidad</span>
+            <span class="pill rounded-full px-3 py-2 text-sm text-slate-300">Nube</span>
+            <span class="pill rounded-full px-3 py-2 text-sm text-slate-300">ITIL</span>
+          </div>
+        </header>
+        ${state.screen === 'auth' ? renderAuth() : state.screen === 'home' ? renderHome() : state.screen === 'mission' ? renderMission() : renderResults()}
+      `;
+    }
+
+    window.submitStudentForm = submitStudentForm;
+    window.startMission = startMission;
+    window.resetRun = resetRun;
+    window.chooseOption = chooseOption;
+    window.nextStage = nextStage;
+
+    initializeMissions();
+    loadRanking();
+    render();
+  </script>
+</body>
+</html>
